@@ -1,1 +1,347 @@
 
+<title>Thunder Team • สุ่มทีม จัดตารางแข่ง</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== ธีมหลัก: แก้สีได้ที่นี่ ===== */
+  :root{--bg:#04060f;--navy:#0a1a3f;--cyan:#22d3ee;--gold:#fbbf24;--text:#eaf6ff}
+  body{font-family:'Kanit',system-ui,sans-serif;color:var(--text);min-height:100vh;
+    background:radial-gradient(ellipse at 20% 0%,#0d2a6b55,transparent 55%),radial-gradient(ellipse at 90% 100%,#0e749044,transparent 50%),var(--bg)}
+  /* พื้นหลังสายฟ้า */
+  .bolts{position:fixed;inset:0;z-index:-1;pointer-events:none}
+  .bolts svg{position:absolute;width:140px;opacity:.0;filter:drop-shadow(0 0 12px var(--cyan));animation:flash 7s infinite}
+  .bolts svg:nth-child(1){left:6%;top:8%}
+  .bolts svg:nth-child(2){right:8%;top:30%;animation-delay:2.5s;width:100px}
+  .bolts svg:nth-child(3){left:45%;bottom:4%;animation-delay:4.5s;width:120px}
+  @keyframes flash{0%,88%,100%{opacity:0}90%{opacity:.55}92%{opacity:.1}94%{opacity:.6}97%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){.bolts svg{animation:none;opacity:.12}}
+  /* Glassmorphism */
+  .glass{background:rgba(10,26,63,.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(34,211,238,.35);border-radius:1rem;box-shadow:0 0 22px rgba(34,211,238,.12),inset 0 0 18px rgba(34,211,238,.05)}
+  .menu-card{cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s}
+  .menu-card:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 0 30px rgba(251,191,36,.3)}
+  .btn{padding:.55rem 1.1rem;border-radius:.7rem;font-weight:600;transition:.15s;border:1px solid transparent}
+  .btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .btn-cyan{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#021018}
+  .btn-gold{background:linear-gradient(135deg,#d97706,#fbbf24);color:#1a1000}
+  .btn-ghost{background:rgba(255,255,255,.06);border-color:rgba(34,211,238,.4)}
+  .btn:hover{filter:brightness(1.15)}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .inp{background:rgba(2,8,23,.7);border:1px solid rgba(34,211,238,.4);border-radius:.7rem;padding:.55rem .8rem;color:var(--text);width:100%}
+  .inp option{background:#0a1a3f}
+  .gold{color:var(--gold)}.cy{color:var(--cyan)}
+  .page{display:none}.page.active{display:block}
+  .chip{font-size:.72rem;padding:.1rem .55rem;border-radius:99px;border:1px solid currentColor}
+</style>
+</head>
+<body>
+<!-- พื้นหลังสายฟ้า -->
+<div class="bolts" aria-hidden="true">
+  <svg viewBox="0 0 60 120"><path d="M38 0 8 66h20L18 120 54 48H34z" fill="#22d3ee"/></svg>
+  <svg viewBox="0 0 60 120"><path d="M38 0 8 66h20L18 120 54 48H34z" fill="#fbbf24"/></svg>
+  <svg viewBox="0 0 60 120"><path d="M38 0 8 66h20L18 120 54 48H34z" fill="#22d3ee"/></svg>
+</div>
+
+<!-- แถบนำทาง -->
+  <header class="sticky top-0 z-20 glass !rounded-none !border-x-0 !border-t-0">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <button class="text-xl font-bold gold" onclick="showPage('home')">⚡ THUNDER TEAM</button>
+    <nav class="flex gap-1 text-sm flex-wrap justify-end" id="nav">
+      <button class="btn btn-ghost" data-p="home" onclick="showPage('home')">หน้าแรก</button>
+      <button class="btn btn-ghost" data-p="members" onclick="showPage('members')">สมาชิก</button>
+      <button class="btn btn-ghost" data-p="wheel" onclick="showPage('wheel')">วงล้อ</button>
+      <button class="btn btn-ghost" data-p="teams" onclick="showPage('teams')">ทีมปัจจุบัน</button>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-6">
+
+<!-- ===== หน้าแรก (Home Dashboard) ===== -->py-6
+  <section id="page-home" class="page active">
+  <h1 class="text-3xl md:text-4xl font-bold mb-1">ระบบจัดการกลุ่มเกม <span class="gold">&amp; สุ่มทีม</span></h1>
+  <p class="opacity-75 mb-6">เลือกเมนูเพื่อเริ่มต้น</p>
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="glass menu-card p-6" onclick="showPage('members')" tabindex="0">
+      <div class="text-5xl mb-3">👥</div><h2 class="text-xl font-semibold cy">จัดการสมาชิก</h2>
+      <p class="opacity-70 text-sm mt-1">เพิ่ม ค้นหา กรองตามเพศ ลบรายชื่อ</p>
+      <p class="mt-3 gold font-semibold" id="homeCount">0 คน</p></div>
+    <div class="glass menu-card p-6" onclick="showPage('wheel')" tabindex="0">
+      <div class="text-5xl mb-3">🎡</div><h2 class="text-xl font-semibold cy">วงล้อสุ่มทีม</h2>
+      <p class="opacity-70 text-sm mt-1">หมุนวงล้อ แจกทีมสลับทีละคน</p></div>
+    <div class="glass menu-card p-6" onclick="showPage('teams')" tabindex="0">
+      <div class="text-5xl mb-3">🏆</div><h2 class="text-xl font-semibold cy">ทีมปัจจุบัน</h2>
+      <p class="opacity-70 text-sm mt-1">ดูทีมและคัดลอกข้อความส่งแชท</p>
+      <p class="mt-3 gold font-semibold" id="homePicked">จัดแล้ว 0 คน</p></div>
+  </div>
+</section>
+
+<!-- ===== เมนู 1: สมาชิก ===== -->
+<section id="page-members" class="page">
+  <h2 class="text-2xl font-bold mb-4">👥 สมาชิก <span class="gold" id="memberCount"></span></h2>
+  <div class="glass p-4 mb-4 grid gap-2 sm:grid-cols-[1fr_9rem_auto]">
+    <input id="newName" class="inp" placeholder="ชื่อสมาชิก" maxlength="30" onkeydown="if(event.key==='Enter')addMember()">
+    <select id="newGender" class="inp"><option>ชาย</option><option>หญิง</option><option>อื่นๆ</option></select>
+    <button class="btn btn-gold" onclick="addMember()">+ เพิ่ม</button>
+  </div>
+  <div class="glass p-4">
+    <div class="grid gap-2 sm:grid-cols-2 mb-3">
+      <input id="search" class="inp" placeholder="🔍 ค้นหาชื่อ" oninput="renderMembers()">
+      <select id="filterGender" class="inp" onchange="renderMembers()">
+        <option value="">ทุกเพศ</option><option>ชาย</option><option>หญิง</option><option>อื่นๆ</option></select>
+    </div>
+    <ul id="memberList" class="divide-y divide-cyan-900/50"></ul>
+  </div>
+</section>
+
+<!-- ===== เมนู 2: วงล้อ ===== -->
+  <section id="page-wheel" class="page">
+  <h2 class="text-2xl font-bold mb-4">🎡 วงล้อสุ่มทีม</h2>
+  <div class="grid gap-4 md:grid-cols-[1fr_20rem]">
+    <div class="glass p-4 flex flex-col items-center">
+      <div class="relative w-full max-w-[360px]">
+        <div class="absolute left-1/2 -top-2 -translate-x-1/2 z-10 text-3xl gold" style="filter:drop-shadow(0 0 6px #fbbf24)">▼</div>
+        <canvas id="wheel" width="360" height="360" class="w-full"></canvas>
+      </div>
+      <p id="winner" class="text-2xl font-bold gold min-h-[2.2rem] mt-2 text-center"></p>
+      <div class="flex gap-2 mt-2 flex-wrap justify-center">
+        <button id="spinBtn" class="btn btn-gold" onclick="spin()">🎯 หมุนวงล้อ</button>
+        <button class="btn btn-cyan" onclick="autoTeams()">⚡ สุ่มแบ่งทีมทันที</button>
+        <button class="btn btn-ghost" onclick="resetTeams()">รีเซ็ตทีม</button>
+      </div>
+    </div>
+    <div class="glass p-4">
+      <h3 class="font-semibold cy mb-2">ตั้งค่า</h3>
+      <label class="text-sm">จำนวนทีม</label>
+      <input id="teamCount" type="number" min="2" max="10" class="inp mb-2" onchange="saveSettings()">
+      <h3 class="font-semibold cy mt-3 mb-2">เลือกผู้เล่นเข้าวงล้อ</h3>
+      <div class="flex flex-wrap gap-1 mb-2 text-xs">
+        <button class="btn btn-ghost !py-1" onclick="selectBy('all')">ทั้งหมด</button>
+        <button class="btn btn-ghost !py-1" onclick="selectBy('ชาย')">ชาย</button>
+        <button class="btn btn-ghost !py-1" onclick="selectBy('หญิง')">หญิง</button>
+        <button class="btn btn-ghost !py-1" onclick="selectBy('อื่นๆ')">อื่นๆ</button>
+        <button class="btn btn-ghost !py-1" onclick="selectBy('none')">ล้าง</button>
+      </div>
+      <ul id="pickList" class="max-h-72 overflow-y-auto text-sm"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== เมนู 2.1: ทีมปัจจุบัน ===== -->
+  section id="page-teams" class="page">
+  <h2 class="text-2xl font-bold mb-4">🏆 ทีมปัจจุบัน</h2>
+  <div class="glass p-4 mb-4 grid gap-2 sm:grid-cols-3">
+    <div><label class="text-sm">วันจัด</label><input id="tDate" class="inp" placeholder="เช่น 20/11/2026" oninput="saveSettings()"></div>
+    <div><label class="text-sm">เวลา</label><input id="tTime" class="inp" placeholder="เช่น 20.00 น." oninput="saveSettings()"></div>
+    <div><label class="text-sm">จำนวนช่องต่อทีม</label><input id="teamSize" type="number" min="1" max="10" class="inp" onchange="saveSettings()"></div>
+  </div>
+  <div id="teamsView" class="grid gap-4 sm:grid-cols-2 mb-4"></div>
+  <div class="flex gap-2 flex-wrap">
+    <button class="btn btn-gold" onclick="copyText()">📋 คัดลอกข้อความ</button>
+    <button class="btn btn-ghost" onclick="resetTeams()">รีเซ็ตทีม</button>
+  </div>
+  <pre id="preview" class="glass p-4 mt-4 text-sm whitespace-pre-wrap"></pre>
+</section>
+</main>
+
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 glass px-4 py-2 hidden z-30 gold font-semibold"></div>
+
+<script>
+/* =====================================================
+   1) STATE & STORAGE — ข้อมูลทั้งหมด + บันทึกลง localStorage
+   ===================================================== */
+const KEY = 'thunderTeamV1';
+let S = { members: [], selected: [], picked: [], teamCount: 2, teamSize: 5, date: '', time: '' };
+// members: [{id,name,gender}]  selected: id ที่ติ๊กเข้าวงล้อ  picked: id ที่สุ่มได้ (เรียงตามลำดับ)
+
+function load(){ try{ Object.assign(S, JSON.parse(localStorage.getItem(KEY)) || {}); }catch(e){} }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+const byId = id => S.members.find(m => m.id === id);
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.add('hidden'),1800); }
+
+/* =====================================================
+  2) NAVIGATION — สลับหน้า (เพิ่มเมนูใหม่: เพิ่ม <section id="page-xxx"> + ปุ่มใน nav)
+   ===================================================== */
+function showPage(p){
+  document.querySelectorAll('.page').forEach(e => e.classList.toggle('active', e.id === 'page-'+p));
+  document.querySelectorAll('#nav [data-p]').forEach(b => b.style.borderColor = b.dataset.p===p ? '#fbbf24' : '');
+  if(p==='wheel') renderWheelPage();
+  if(p==='teams') renderTeams();
+  if(p==='members') renderMembers();
+  renderHome(); window.scrollTo(0,0);
+}
+function renderHome(){
+  document.getElementById('homeCount').textContent = S.members.length + ' คน';
+  document.getElementById('homePicked').textContent = 'จัดแล้ว ' + S.picked.length + ' คน';
+}
+
+/* =====================================================
+   3) MEMBERS — เพิ่ม / ลบ / ค้นหา / กรอง
+     ===================================================== */
+function addMember(){
+  const inp = document.getElementById('newName'), name = inp.value.trim();
+  if(!name) return toast('กรุณากรอกชื่อ');
+  if(S.members.some(m => m.name === name)) return toast('มีชื่อนี้อยู่แล้ว');
+  const id = Date.now() + Math.random();
+  S.members.push({ id, name, gender: document.getElementById('newGender').value });
+  S.selected.push(id);               // เพิ่มใหม่ให้ติ๊กเข้าวงล้ออัตโนมัติ
+  save(); inp.value=''; inp.focus(); renderMembers(); renderHome();
+}
+function delMember(id){
+  S.members = S.members.filter(m => m.id !== id);
+  S.selected = S.selected.filter(x => x !== id);
+  S.picked = S.picked.filter(x => x !== id);
+  save(); renderMembers(); renderHome();
+}
+function genderColor(g){ return g==='ชาย' ? 'text-cyan-300' : g==='หญิง' ? 'text-pink-300' : 'text-amber-300'; }
+function renderMembers(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const g = document.getElementById('filterGender').value;
+  const list = S.members.filter(m => m.name.toLowerCase().includes(q) && (!g || m.gender===g));
+  document.getElementById('memberCount').textContent = `(ทั้งหมด ${S.members.length} คน` + (list.length!==S.members.length ? ` • แสดง ${list.length}` : '') + ')';
+  document.getElementById('memberList').innerHTML = list.length ? list.map(m => `
+    <li class="flex items-center justify-between py-2">
+      <span>${esc(m.name)} <span class="chip ${genderColor(m.gender)} ml-1">${m.gender}</span></span>
+      <button class="btn btn-ghost !py-1 text-red-300" onclick="delMember(${m.id})" aria-label="ลบ ${esc(m.name)}">ลบ</button>
+    </li>`).join('') : '<li class="py-6 text-center opacity-60">ยังไม่มีรายชื่อ เพิ่มสมาชิกด้านบนได้เลย</li>';
+}
+
+/* =====================================================
+   4) TEAMS LOGIC — Round-Robin (คนที่ 1→ทีม1, 2→ทีม2, 3→ทีม1 ...)
+   คำนวณจากลำดับ S.picked จึงปรับจำนวนทีมแล้วทีมจัดใหม่อัตโนมัติ
+   ==================จึงปรับจำนวนทีมแล้วทีมจัดใหม่อัตโนมัติ
+  function buildTeams(){
+  const n = Math.max(2, +S.teamCount || 2);
+  const teams = Array.from({length:n}, () => []);
+  S.picked.forEach((id,i) => { const m = byId(id); if(m) teams[i % n].push(m.name); });
+  return teams;
+}
+function resetTeams(){
+  if(S.picked.length && !confirm('ล้างทีมทั้งหมด?')) return;
+  S.picked = []; save(); wheelAngle = 0; document.getElementById('winner').textContent='';
+  renderWheelPage(); renderTeams(); renderHome();
+}
+// สุ่มแบ่งทีมทันที: เอาคนที่ติ๊ก (และยังไม่ถูกจัด) มาสลับลำดับแล้วแจกวนทีละคน
+function autoTeams(){
+  const pool = poolIds();
+  if(!pool.length) return toast('ไม่มีผู้เล่นในวงล้อ');
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  S.picked.push(...pool); save();
+  renderWheelPage(); renderHome(); showPage('teams'); toast('จัดทีมเรียบร้อย');
+}
+
+/* =====================================================
+   5) WHEEL — วาดวงล้อ (canvas) + หมุน + ตัดชื่อออกหลังสุ่มได้
+   ===================================================== */
+  let wheelAngle = 0, spinning = false;
+const COLORS = ['#0e7490','#1e3a8a','#0891b2','#1d4ed8','#b45309','#0c4a6e'];
+const poolIds = () => S.selected.filter(id => byId(id) && !S.picked.includes(id));
+
+function drawWheel(){
+  const c = document.getElementById('wheel'), x = c.getContext('2d'), R = 175, cx = 180, cy = 180;
+  const names = poolIds().map(id => byId(id).name), n = names.length;
+  x.clearRect(0,0,360,360);
+  if(!n){ x.fillStyle='rgba(10,26,63,.6)'; x.beginPath(); x.arc(cx,cy,R,0,7); x.fill();
+    x.strokeStyle='#22d3ee'; x.lineWidth=3; x.stroke();
+    x.fillStyle='#eaf6ff'; x.font='18px Kanit'; x.textAlign='center'; x.fillText('ไม่มีผู้เล่นในวงล้อ',cx,cy+6); return; }
+  const a = 2*Math.PI/n;
+  names.forEach((nm,i) => {
+    const s = wheelAngle + i*a;
+    x.beginPath(); x.moveTo(cx,cy); x.arc(cx,cy,R,s,s+a); x.closePath();
+    x.fillStyle = COLORS[i % COLORS.length]; x.fill();
+    x.strokeStyle='#22d3ee'; x.lineWidth=1.5; x.stroke();
+    x.save(); x.translate(cx,cy); x.rotate(s+a/2); x.textAlign='right'; x.fillStyle='#fff';
+    x.font = (n>14 ? 12 : 16) + 'px Kanit'; x.fillText(nm.length>12 ? nm.slice(0,11)+'…' : nm, R-14, 5); x.restore();
+  });
+  x.beginPath(); x.arc(cx,cy,R,0,7); x.strokeStyle='#fbbf24'; x.lineWidth=5; x.stroke();
+  x.beginPath(); x.arc(cx,cy,16,0,7); x.fillStyle='#fbbf24'; x.fill();
+}
+function spin(){
+  const ids = poolIds();
+  if(spinning) return;
+  if(!ids.length) return toast('ไม่มีผู้เล่นในวงล้อ');
+  spinning = true; document.getElementById('spinBtn').disabled = true;
+  document.getElementById('winner').textContent = '';
+  const n = ids.length, a = 2*Math.PI/n, win = Math.floor(Math.random()*n);
+  // เข็มชี้ที่มุม -90° (บนสุด): กลางช่องผู้ชนะต้องมาอยู่ตรงนั้น
+  const target = -Math.PI/2 - (win + 0.5)*a;
+  const start = wheelAngle, delta = ((target - start) % (2*Math.PI) - 2*Math.PI) % (2*Math.PI) - 2*Math.PI*(5+Math.floor(Math.random()*3));
+  const dur = 4500, t0 = performance.now();
+  (function frame(now){
+    const t = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-t,4);   // ease-out
+    wheelAngle = start + delta*e; drawWheel();
+    if(t<1) return requestAnimationFrame(frame);
+    spinning = false; document.getElementById('spinBtn').disabled = false;
+    onWinner(ids[win]);
+  })(t0);
+}
+// เมื่อได้ผู้ชนะ: ใส่ลงทีมแบบสลับวน และถูกตัดออกจากวงล้อทันที
+  function onWinner(id){
+  const teamNo = (S.picked.length % Math.max(2,+S.teamCount||2)) + 1;
+  S.picked.push(id); save();
+  document.getElementById('winner').textContent = `🎉 ${byId(id).name} → ทีม ${teamNo}`;
+  renderWheelPage(); renderHome();
+}
+function selectBy(k){
+  if(k==='all') S.selected = S.members.map(m=>m.id);
+  else if(k==='none') S.selected = [];
+  else { const ids = S.members.filter(m=>m.gender===k).map(m=>m.id); S.selected = [...new Set([...S.selected, ...ids])]; }
+  save(); renderWheelPage();
+}
+function toggleSel(id){
+  S.selected = S.selected.includes(id) ? S.selected.filter(x=>x!==id) : [...S.selected, id];
+  save(); renderWheelPage();
+}
+function renderWheelPage(){
+  document.getElementById('teamCount').value = S.teamCount;
+  document.getElementById('pickList').innerHTML = S.members.length ? S.members.map(m => {
+    const done = S.picked.includes(m.id);
+    return `<li class="py-1"><label class="flex items-center gap-2 ${done?'opacity-40':''}">
+      <input type="checkbox" ${S.selected.includes(m.id)?'checked':''} ${done?'disabled':''} onchange="toggleSel(${m.id})">
+      <span>${esc(m.name)}</span><span class="chip ${genderColor(m.gender)}">${m.gender}</span>${done?'<span class="text-xs gold">จัดแล้ว</span>':''}</label></li>`;
+  }).join('') : '<li class="opacity-60">เพิ่มสมาชิกที่เมนู "สมาชิก" ก่อน</li>';
+  drawWheel();
+}
+
+/* =====================================================
+   6) CURRENT TEAMS & EXPORT — แสดงทีม + สร้างข้อความคัดลอก
+   ===================================================== */
+  function renderTeams(){
+  document.getElementById('tDate').value = S.date; document.getElementById('tTime').value = S.time;
+  document.getElementById('teamSize').value = S.teamSize;
+  const teams = buildTeams();
+  document.getElementById('teamsView').innerHTML = teams.map((t,i) => `
+    <div class="glass p-4"><h3 class="font-bold gold mb-2">ทีม ${i+1} <span class="text-xs opacity-70">(${t.length} คน)</span></h3>
+      ${t.length ? '<ol class="list-decimal pl-5 space-y-1">'+t.map(n=>`<li>${esc(n)}</li>`).join('')+'</ol>' : '<p class="opacity-60 text-sm">ยังไม่มีผู้เล่น</p>'}</div>`).join('');
+  document.getElementById('preview').textContent = buildText();
+}
+// รูปแบบข้อความตามต้นฉบับ — แก้ template ตรงนี้ที่เดียว
+function buildText(){
+  const size = Math.max(1, +S.teamSize || 5);
+  let out = `Tournament (${S.date || 'วันจัด'})\n(${S.time || 'เวลา'}) ROV \nชื่อผู้เข้าร่วมการแข่งขัน[สุ่มเเล้ว]\n`;
+  buildTeams().forEach((t,i) => {
+    out += `ทีม ${i+1}\n`;
+    for(let k=0;k<Math.max(size,t.length);k++) out += `${k+1}. ${t[k] || ''}\n`;
+  });
+  return out + `________________^~^\nBo3 (ชนะ2ใน3ไม่เล่นตัวซ้ำทีมตัวเอง)`;
+}
+function copyText(){
+  const txt = buildText();
+  const ok = () => toast('คัดลอกแล้ว ✔');
+  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(ok, fallback); else fallback();
+  function fallback(){ const a=document.createElement('textarea'); a.value=txt; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); ok(); }
+}
+function saveSettings(){
+  S.teamCount = Math.min(10, Math.max(2, +document.getElementById('teamCount').value || S.teamCount));
+  S.teamSize = Math.min(10, Math.max(1, +document.getElementById('teamSize').value || S.teamSize));
+  S.date = document.getElementById('tDate').value; S.time = document.getElementById('tTime').value;
+  save(); renderTeams();
+}
+
+/* =====================================================
+   7) INIT
+   ===================================================== */
+load(); showPage('home');
+</script>
+</body>
+</html>
