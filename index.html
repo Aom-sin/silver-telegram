@@ -57,6 +57,7 @@
       <button class="btn btn-ghost" data-p="wheel" onclick="showPage('wheel')">วงล้อ</button>
       <button class="btn btn-ghost" data-p="teams" onclick="showPage('teams')">ทีมปัจจุบัน</button>
       <button class="btn btn-ghost" data-p="history" onclick="showPage('history')">บันทึกการสุ่ม</button>
+      <button id="muteBtn" class="btn btn-ghost" onclick="toggleMute()" aria-label="เปิด/ปิดเสียง"></button>
     </nav>
   </div>
 </header>
@@ -112,7 +113,7 @@
     <div>
       <div class="glass p-4 flex flex-col items-center">
         <div class="relative w-full max-w-[360px]">
-          <div class="absolute left-1/2 -top-2 -translate-x-1/2 z-10 text-3xl gold" style="filter:drop-shadow(0 0 6px #fbbf24)">▼</div>
+          <div id="pointer" class="absolute left-1/2 -top-2 -translate-x-1/2 z-10 text-3xl gold" style="filter:drop-shadow(0 0 6px #fbbf24);transition:rotate .07s">▼</div>
           <canvas id="wheel" width="360" height="360" class="w-full"></canvas>
         </div>
         <div class="flex gap-2 mt-3 flex-wrap justify-center">
@@ -133,12 +134,15 @@
         <div><label class="text-sm">ช่องต่อทีม</label><input id="teamSize" type="number" min="1" max="10" class="inp" onchange="saveSettings()"></div>
       </div>
       <h3 class="font-semibold cy mt-4 mb-2">เลือกผู้เล่นเข้าวงล้อ <span id="selCount" class="gold text-sm"></span></h3>
-      <div class="flex flex-wrap gap-1 mb-2 text-xs">
-        <button class="btn btn-ghost !py-1" onclick="selectBy('all')">ทั้งหมด</button>
-        <button class="btn btn-ghost !py-1" onclick="selectBy('ชาย')">ชาย</button>
-        <button class="btn btn-ghost !py-1" onclick="selectBy('หญิง')">หญิง</button>
-        <button class="btn btn-ghost !py-1" onclick="selectBy('อื่นๆ')">อื่นๆ</button>
-        <button class="btn btn-ghost !py-1" onclick="selectBy('none')">ล้าง</button>
+      <div class="flex flex-wrap gap-1 mb-2 text-xs" id="wFilter">
+        <button class="btn btn-ghost !py-1" data-f="" onclick="setFilter('')">ทั้งหมด</button>
+        <button class="btn btn-ghost !py-1" data-f="ชาย" onclick="setFilter('ชาย')">ชาย</button>
+        <button class="btn btn-ghost !py-1" data-f="หญิง" onclick="setFilter('หญิง')">หญิง</button>
+        <button class="btn btn-ghost !py-1" data-f="อื่นๆ" onclick="setFilter('อื่นๆ')">อื่นๆ</button>
+      </div>
+      <div class="flex gap-1 mb-2 text-xs">
+        <button class="btn btn-cyan !py-1" onclick="selectShown()">✔ เลือกที่แสดงทั้งหมด</button>
+        <button class="btn btn-ghost !py-1" onclick="clearSel()">ล้างที่เลือก</button>
       </div>
       <ul id="pickList" class="max-h-72 overflow-y-auto text-sm"></ul>
     </div>
@@ -334,7 +338,7 @@ function autoTeams(){ // สุ่มแบ่งทีมทันที: ส�
   const pool = poolIds();
   if(!pool.length) return toast('ยังไม่มีผู้เล่นในวงล้อ');
   for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  S.picked.push(...pool); save(); saveRecord(false);
+  S.picked.push(...pool); save(); saveRecord(false); sndWin();
   renderWheelPage(); renderHome(); showPage('teams'); toast('จัดทีมและบันทึกแล้ว');
 }
 
@@ -363,25 +367,65 @@ function drawWheel(){
   x.beginPath(); x.arc(cx,cy,R,0,7); x.strokeStyle='#fbbf24'; x.lineWidth=5; x.stroke();
   x.beginPath(); x.arc(cx,cy,16,0,7); x.fillStyle='#fbbf24'; x.fill();
 }
+/* ===== ระบบเสียง (Web Audio) — เปิด/ปิดด้วยปุ่ม 🔊 ที่แถบเมนู จำค่าไว้ในเครื่องนี้ ===== */
+let muted = false, AC = null;
+try{ muted = localStorage.getItem('thunderMute') === '1'; }catch(e){}
+function audioCtx(){ // สร้าง/ปลุก AudioContext (ต้องเรียกจากการกดปุ่มของผู้ใช้ครั้งแรก)
+  if(!AC){ try{ AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function beep(freq, dur, type, vol, delay, endFreq){ // เสียงโน้ตสั้นๆ 1 เสียง
+  if(muted) return; const c = audioCtx(); if(!c) return;
+  const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + (delay || 0);
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if(endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+}
+// เสียงเข็มผ่านช่อง: ช่วงท้าย (t ใกล้ 1) เสียงทุ้มและยาวขึ้น เพิ่มความลุ้น
+function sndTick(t){ t > 0.8 ? beep(650, 0.09, 'triangle', 0.28) : beep(1250, 0.04, 'square', 0.09); }
+function sndStart(){ beep(180, 0.6, 'sawtooth', 0.05, 0, 700); }            // เสียงวื้ดตอนเริ่มหมุน
+function sndWin(){ [523, 659, 784, 1047].forEach((f,i) => beep(f, i===3 ? 0.7 : 0.2, 'triangle', 0.22, i*0.13)); beep(2093, 0.5, 'sine', 0.07, 0.4); }
+function updateMuteBtn(){ const b = $('muteBtn'); if(b) b.textContent = muted ? '🔇' : '🔊'; }
+function toggleMute(){
+  muted = !muted; try{ localStorage.setItem('thunderMute', muted ? '1' : '0'); }catch(e){}
+  updateMuteBtn(); if(!muted) beep(880, 0.15, 'triangle', 0.2); toast(muted ? 'ปิดเสียงแล้ว' : 'เปิดเสียงแล้ว');
+}
+function tick(t){ // เข็มสะบัดทุกครั้งที่ผ่านขอบช่อง + เสียง (มือถือ Android สั่นเบาๆ ด้วย)
+  sndTick(t || 0);
+  const el = $('pointer'); el.style.rotate = '16deg'; setTimeout(() => el.style.rotate = '0deg', 60);
+  try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+}
 function spin(){
   const ids = poolIds();
   if(spinning) return;
   if(!ids.length) return toast('ยังไม่มีผู้เล่นในวงล้อ');
-  spinning = true; $('spinBtn').disabled = true;
+  spinning = true; $('spinBtn').disabled = true; sndStart();
   const n = ids.length, a = 2*Math.PI/n, win = Math.floor(Math.random()*n);
-  const target = -Math.PI/2 - (win + 0.5)*a;            // เข็มชี้บนสุด
+  const target = -Math.PI/2 - (win + 0.1 + Math.random()*0.8)*a;  // หยุดตรงจุดสุ่มภายในช่องผู้ชนะ (ไม่ใช่กลางช่อง) → บางครั้งเฉียดขอบ ลุ้นระทึก
   const start = wheelAngle;
-  const delta = ((target - start) % (2*Math.PI) - 2*Math.PI) % (2*Math.PI) - 2*Math.PI*(5+Math.floor(Math.random()*3));
-  const dur = 4500, t0 = performance.now();
+  const delta = ((target - start) % (2*Math.PI) - 2*Math.PI) % (2*Math.PI) - 2*Math.PI*(4+Math.floor(Math.random()*3));
+  // ฟิสิกส์แบบไถล: ออกตัวนุ่มๆ แล้วความเร็วลดลงเรื่อยๆ ตามแรงเสียดทาน (exponential) ไปหยุดที่จุดเป้าหมายพอดี
+  const T = 7 + Math.random()*2, k = 6/T, N = Math.round(T*120), cum = new Float32Array(N+1);
+  let acc = 0;
+  for(let i=1;i<=N;i++){ const ti=i/120, r=Math.min(1,ti/0.45); acc += Math.exp(-k*ti) * r*r*(3-2*r); cum[i] = acc; }
+  for(let i=1;i<=N;i++) cum[i] /= acc;                       // ปรับให้ตำแหน่งสุดท้าย = 1 (ตรงเป้าหมาย)
+  const glide = t => { const f = t*N, i = Math.floor(f); return i >= N ? 1 : cum[i] + (cum[i+1]-cum[i])*(f-i); };
+  const dur = T*1000, t0 = performance.now();                  // หมุนนาน 7-9 วินาที
+  let lastIdx = -1;
   (function frame(now){
-    const t = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-t,4);
+    const t = Math.min(1,(now-t0)/dur), e = glide(t);   // ไถลลื่นๆ ช่วงท้ายค่อยๆ ชะลอ ลุ้นทีละช่อง
     wheelAngle = start + delta*e; drawWheel();
+    const idx = Math.floor((((-Math.PI/2 - wheelAngle) % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI) / a);
+    if(idx !== lastIdx){ if(lastIdx !== -1) tick(t); lastIdx = idx; }   // เข็มผ่านแต่ละช่อง → สะบัด + สั่น
     if(t<1) return requestAnimationFrame(frame);
     spinning = false; $('spinBtn').disabled = false; onWinner(ids[win]);
   })(t0);
 }
 // ได้ผู้ชนะ: โชว์ป๊อปอัปชื่อ → ลงทีมสลับวน → ตัดออกจากวงล้อ
 function onWinner(id){
+  sndWin();
   const teamNo = (S.picked.length % teamN()) + 1, name = byId(id).name;
   S.picked.push(id); save();
   const finished = poolIds().length === 0;
@@ -391,12 +435,13 @@ function onWinner(id){
          <div class="text-xl cy mt-2">ไปอยู่ ทีม ${teamNo}</div>` + (finished ? '<div class="text-sm opacity-70 mt-2">สุ่มครบแล้ว บันทึกการสุ่มให้อัตโนมัติ ✔</div>' : ''),
         [{ label:'ตกลง', cls:'btn-gold' }]);
 }
-function selectBy(k){
-  if(k==='all') S.selected = S.members.map(m=>m.id);
-  else if(k==='none') S.selected = [];
-  else S.selected = [...new Set([...S.selected, ...S.members.filter(m=>m.gender===k).map(m=>m.id)])];
-  save(); renderWheelPage();
+let wheelFilter = '';   // ตัวกรองเพศของรายชื่อในหน้าวงล้อ ('' = ทุกเพศ) — กรองให้ดูเฉยๆ ไม่ได้เลือกให้
+function setFilter(g){ wheelFilter = g; renderWheelPage(); }
+function selectShown(){ // เลือกเฉพาะคนที่แสดงอยู่ตอนนี้ (ตามตัวกรอง)
+  const ids = S.members.filter(m => (!wheelFilter || m.gender===wheelFilter) && !S.picked.includes(m.id)).map(m=>m.id);
+  S.selected = [...new Set([...S.selected, ...ids])]; save(); renderWheelPage();
 }
+function clearSel(){ S.selected = []; save(); renderWheelPage(); }
 function toggleSel(id){
   S.selected = S.selected.includes(id) ? S.selected.filter(x=>x!==id) : [...S.selected, id];
   save(); renderWheelPage();
@@ -409,12 +454,14 @@ function saveSettings(){
 function renderWheelPage(){
   $('teamCount').value = S.teamCount; $('teamSize').value = S.teamSize;
   $('selCount').textContent = `(เลือก ${poolIds().length})`;
-  $('pickList').innerHTML = S.members.length ? S.members.map(m => {
+  document.querySelectorAll('#wFilter [data-f]').forEach(b => b.style.borderColor = b.dataset.f===wheelFilter ? '#fbbf24' : '');
+  const shown = S.members.filter(m => !wheelFilter || m.gender===wheelFilter);
+  $('pickList').innerHTML = shown.length ? shown.map(m => {
     const done = S.picked.includes(m.id);
     return `<li class="py-1"><label class="flex items-center gap-2 ${done?'opacity-40':''}">
       <input type="checkbox" ${S.selected.includes(m.id)?'checked':''} ${done?'disabled':''} onchange="toggleSel(${m.id})">
       <span>${esc(m.name)}</span><span class="chip ${genderColor(m.gender)}">${m.gender}</span>${done?'<span class="text-xs gold">จัดแล้ว</span>':''}</label></li>`;
-  }).join('') : '<li class="opacity-60">เพิ่มสมาชิกที่เมนู "สมาชิก" ก่อน</li>';
+  }).join('') : `<li class="opacity-60">${S.members.length ? 'ไม่มีรายชื่อเพศนี้' : 'เพิ่มสมาชิกที่เมนู "สมาชิก" ก่อน'}</li>`;
   const n = teamN();
   $('drawLog').innerHTML = S.picked.length ? S.picked.map((id,i) => byId(id) ?
     `<li class="flex justify-between"><span>${i+1}. ${esc(byId(id).name)}</span><span class="gold">ทีม ${(i % n)+1}</span></li>` : '').join('')
@@ -479,7 +526,7 @@ function delHist(id){
 /* =====================================================
    8) INIT
    ===================================================== */
-load(); initCloud(); showPage('home');
+load(); initCloud(); updateMuteBtn(); showPage('home');
 </script>
 </body>
 </html>
