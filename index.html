@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thunder Team • สุ่มทีม จัดตารางแข่ง</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
   /* ===== ธีมหลัก: แก้สีได้ที่นี่ ===== */
@@ -48,7 +50,7 @@
 <!-- แถบนำทาง: เพิ่มเมนูใหม่ที่นี่ + เพิ่ม <section id="page-xxx"> -->
 <header class="sticky top-0 z-20 glass !rounded-none !border-x-0 !border-t-0">
   <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-    <button class="text-xl font-bold gold" onclick="showPage('home')">⚡ THUNDER TEAM</button>
+    <div><button class="text-xl font-bold gold" onclick="showPage('home')">⚡ THUNDER TEAM</button><div id="cloudStatus" class="text-xs opacity-80"></div></div>
     <nav class="flex gap-1 text-sm flex-wrap" id="nav">
       <button class="btn btn-ghost" data-p="home" onclick="showPage('home')">หน้าแรก</button>
       <button class="btn btn-ghost" data-p="members" onclick="showPage('members')">สมาชิก</button>
@@ -188,7 +190,60 @@ function load(){
     if(d) Object.assign(S, d);
   }catch(e){}
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+  if(dbRef) dbRef.set({ json: JSON.stringify(S) });   // ส่งขึ้นคลาวด์ ทุกคนที่เปิดเว็บเห็นตรงกัน
+}
+
+/* =====================================================
+   CLOUD SYNC (Firebase Realtime Database) — ใช้ร่วมกันหลายคนแบบเรียลไทม์
+   วิธีเปิดใช้: วาง config ของ Firebase ที่ FIREBASE_CONFIG (ถ้าเป็น null = ใช้เครื่องเดียว)
+   แยกห้องด้วย URL เช่น  index.html?room=ทัวร์นาเมนต์1
+   ===================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBc3fnKfYUCdWmPMfhHYvJO19NokidzsZY",
+  authDomain: "rov-team.firebaseapp.com",
+  databaseURL: "https://rov-team-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rov-team",
+  storageBucket: "rov-team.firebasestorage.app",
+  messagingSenderId: "796308033317",
+  appId: "1:796308033317:web:e337bfbdb8df1329d0d4cc"
+};
+/* ตัวอย่าง:
+const FIREBASE_CONFIG = {
+  apiKey: "xxxx", authDomain: "xxxx.firebaseapp.com",
+  databaseURL: "https://xxxx-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "xxxx", appId: "xxxx"
+};*/
+const ROOM = (new URLSearchParams(location.search).get('room') || 'main').replace(/[.#$\[\]\/]/g, '_');
+let dbRef = null;
+function setStatus(on){
+  document.getElementById('cloudStatus').textContent = on ? `🟢 ซิงค์ออนไลน์ • ห้อง ${ROOM}` : '⚪ บันทึกในเครื่องนี้เท่านั้น';
+}
+function initCloud(){
+  if(!FIREBASE_CONFIG || typeof firebase === 'undefined'){ setStatus(false); return; }
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    dbRef = firebase.database().ref('rooms/' + ROOM);
+    dbRef.on('value', snap => {
+      const d = snap.val();
+      if(d && d.json){                                   // มีข้อมูลในห้อง → โหลดมาแสดง (อัปเดตทันทีเมื่อคนอื่นแก้)
+        Object.assign(S, JSON.parse(d.json));
+        try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+        refreshView();
+      } else if(S.members.length){ dbRef.set({ json: JSON.stringify(S) }); }  // ห้องใหม่ → อัปโหลดข้อมูลในเครื่องขึ้นไป
+      setStatus(true);
+    }, () => setStatus(false));
+  }catch(e){ setStatus(false); }
+}
+function refreshView(){ // วาดหน้าปัจจุบันใหม่โดยไม่เลื่อนหน้าจอ
+  const p = document.querySelector('.page.active').id.slice(5);
+  if(p==='wheel' && !spinning) renderWheelPage();
+  if(p==='teams') renderTeams();
+  if(p==='members') renderMembers();
+  if(p==='history') renderHistory();
+  renderHome();
+}
 const $ = id => document.getElementById(id);
 const byId = id => S.members.find(m => m.id === id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -300,7 +355,7 @@ function drawWheel(){
   const a = 2*Math.PI/n;
   names.forEach((nm,i) => {
     const s = wheelAngle + i*a;
-    x.beginPath(); x.moveTo(cx,cy); x.arc(cx,cy,R,s,s+a); x.closePath();
+    x.beginPat(); x.moveTo(cx,cy); x.arc(cx,cy,R,s,s+a); x.closePath();
     x.fillStyle = COLORS[i % COLORS.length]; x.fill(); x.strokeStyle='#22d3ee'; x.lineWidth=1.5; x.stroke();
     x.save(); x.translate(cx,cy); x.rotate(s+a/2); x.textAlign='right'; x.fillStyle='#fff';
     x.font = (n>14 ? 12 : 16) + 'px Kanit'; x.fillText(nm.length>12 ? nm.slice(0,11)+'…' : nm, R-14, 5); x.restore();
@@ -424,7 +479,8 @@ function delHist(id){
 /* =====================================================
    8) INIT
    ===================================================== */
-load(); showPage('home');
+load(); initCloud(); showPage('home');
 </script>
 </body>
 </html>
+renderHome
