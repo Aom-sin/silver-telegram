@@ -57,6 +57,7 @@
       <button class="btn btn-ghost" data-p="wheel" onclick="showPage('wheel')">วงล้อ</button>
       <button class="btn btn-ghost" data-p="teams" onclick="showPage('teams')">ทีมปัจจุบัน</button>
       <button class="btn btn-ghost" data-p="history" onclick="showPage('history')">บันทึกการสุ่ม</button>
+      <button class="btn btn-ghost" data-p="book" onclick="showPage('book')">สมุดสมาชิก</button>
       <button id="muteBtn" class="btn btn-ghost" onclick="toggleMute()" aria-label="เปิด/ปิดเสียง"></button>
     </nav>
   </div>
@@ -68,7 +69,7 @@
 <section id="page-home" class="page active">
   <h1 class="text-3xl md:text-4xl font-bold mb-1">ระบบจัดการกลุ่มเกม <span class="gold">&amp; สุ่มทีม</span></h1>
   <p class="opacity-75 mb-6">เลือกเมนูเพื่อเริ่มต้น</p>
-  <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
     <div class="glass menu-card p-5" onclick="showPage('members')" tabindex="0">
       <div class="text-4xl mb-2">👥</div><h2 class="text-lg font-semibold cy">จัดการสมาชิก</h2>
       <p class="opacity-70 text-sm mt-1">เก็บรายชื่อและเพศ</p>
@@ -84,6 +85,10 @@
       <div class="text-4xl mb-2">📜</div><h2 class="text-lg font-semibold cy">บันทึกการสุ่ม</h2>
       <p class="opacity-70 text-sm mt-1">ประวัติการสุ่มทุกครั้ง</p>
       <p class="mt-2 gold font-semibold" id="homeHist">0 ครั้ง</p></div>
+    <div class="glass menu-card p-5" onclick="showPage('book')" tabindex="0">
+      <div class="text-4xl mb-2">📒</div><h2 class="text-lg font-semibold cy">สมุดสมาชิก</h2>
+      <p class="opacity-70 text-sm mt-1">คนในกลุ่ม ใบเหลือง/แดง คนออกกลุ่ม</p>
+      <p class="mt-2 gold font-semibold" id="homeBook">ในกลุ่ม 0 คน</p></div>
   </div>
 </section>
 
@@ -167,13 +172,29 @@
   <p class="opacity-70 text-sm mb-4">บันทึกอัตโนมัติเมื่อสุ่มครบทุกคน หรือกด "บันทึกการสุ่ม" เอง</p>
   <div id="histList" class="grid gap-4"></div>
 </section>
+
+<!-- ===== เมนู 4: สมุดสมาชิก (แยกจากวงล้อ/ทีม) ===== -->
+<section id="page-book" class="page">
+  <h2 class="text-2xl font-bold mb-1">📒 สมุดสมาชิก</h2>
+  <p class="opacity-70 text-sm mb-3">สมุดแยกต่างหาก ไม่เชื่อมกับเมนูสมาชิก วงล้อ หรือทีม</p>
+  <div class="grid grid-cols-2 gap-2 mb-3" id="bookTabs">
+    <button class="btn btn-ghost" data-t="in" onclick="setBookTab('in')"></button>
+    <button class="btn btn-ghost" data-t="out" onclick="setBookTab('out')"></button>
+  </div>
+  <div class="flex gap-2 mb-3 items-center">
+    <button id="bAddBtn" class="btn btn-gold !py-1.5 text-sm whitespace-nowrap" onclick="bookAddOpen()">+ เพิ่ม</button>
+    <button class="btn btn-ghost !py-1.5 text-sm whitespace-nowrap" onclick="bookSettings()">⚙️ ตั้งค่า</button>
+    <input id="bSearch" class="inp !py-1.5 text-sm flex-1 min-w-0" placeholder="🔍 ค้นหาชื่อ" oninput="renderBook()">
+  </div>
+  <div class="glass px-4 py-1"><ul id="bookList" class="divide-y divide-cyan-900/50"></ul></div>
+</section>
 </main>
 
 <!-- ป๊อปอัป (ใช้ทั้งแสดงผู้ชนะ และยืนยันก่อนลบ/รีเซ็ต) -->
 <div id="modal" class="hidden" onclick="if(event.target===this)closeModal()">
-  <div id="modalBox" class="glass p-6 max-w-sm w-full text-center">
+  <div id="modalBox" class="glass p-6 max-w-sm w-full text-center max-h-[90vh] overflow-y-auto">
     <div id="modalBody"></div>
-    <div id="modalActions" class="flex gap-2 justify-center mt-4"></div>
+    <div id="modalActions" class="flex gap-2 justify-center flex-wrap mt-4"></div>
   </div>
 </div>
 <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 glass px-4 py-2 hidden z-[60] gold font-semibold"></div>
@@ -183,7 +204,7 @@
    1) STATE & STORAGE — ข้อมูลทั้งหมดเก็บใน localStorage ตลอด
    ===================================================== */
 const KEY = 'thunderTeamV2';
-let S = { members: [], selected: [], picked: [], teamCount: 2, teamSize: 5, history: [], sessionId: null };
+let S = { members: [], selected: [], picked: [], teamCount: 2, teamSize: 5, history: [], sessionId: null, book: { members: [], left: [] } };
 // members: คลังรายชื่อ [{id,name,gender}]   selected: id ที่เลือกเข้าวงล้อ
 // picked: id ที่สุ่มได้ (เรียงตามลำดับ)       history: บันทึกการสุ่ม [{id,ts,teams:[[ชื่อ..],..]}]
 
@@ -246,6 +267,7 @@ function refreshView(){ // วาดหน้าปัจจุบันให�
   if(p==='teams') renderTeams();
   if(p==='members') renderMembers();
   if(p==='history') renderHistory();
+  if(p==='book') renderBook();
   renderHome();
 }
 const $ = id => document.getElementById(id);
@@ -276,12 +298,14 @@ function showPage(p){
   if(p==='teams') renderTeams();
   if(p==='members') renderMembers();
   if(p==='history') renderHistory();
+  if(p==='book') renderBook();
   renderHome(); window.scrollTo(0,0);
 }
 function renderHome(){
   $('homeCount').textContent = S.members.length + ' คน';
   $('homePicked').textContent = 'จัดแล้ว ' + S.picked.length + ' คน';
   $('homeHist').textContent = S.history.length + ' ครั้ง';
+  $('homeBook').textContent = `ในกลุ่ม ${bk().members.length} คน • ออก ${bk().left.length}`;
 }
 
 /* =====================================================
@@ -524,9 +548,131 @@ function delHist(id){
 }
 
 /* =====================================================
+   7.5) BOOK — สมุดสมาชิก (กะทัดรัด)
+   S.book = { members:[{id,name,gender,age,yellow,red,joined}], left:[{...เหมือนกัน, reason, ts(เวลาที่ออก)}] }
+   หน้าจอแสดงผลอย่างเดียว การเพิ่ม/แก้ไข/ออกกลุ่ม ทำผ่านป๊อปอัป (+ เพิ่ม / ⚙️ ตั้งค่า)
+   ===================================================== */
+let bookTab = 'in', eTmp = {};
+const bk = () => (S.book && S.book.members) ? S.book : (S.book = { members: [], left: [] });
+const findBook = (list, id) => bk()[list].find(x => x.id === id);
+const fmtShort = ts => ts ? new Date(ts).toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric' }) : '-';   // 16/11/2569
+const toISO = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const genderOpts = g => ['ชาย','หญิง','อื่นๆ'].map(x => `<option ${x===g?'selected':''}>${x}</option>`).join('');
+const cardsText = p => (p.yellow || p.red)
+  ? [p.yellow ? `🟨×${p.yellow}` : '', p.red ? `🟥×${p.red}` : ''].filter(Boolean).join(' ')
+  : '<span class="opacity-60">ไม่มีใบ</span>';
+function setBookTab(t){ bookTab = t; renderBook(); }
+
+/* --- เพิ่มสมาชิก (ป๊อปอัป) กด "เพิ่ม" แล้วฟอร์มเปิดใหม่ต่อ เพิ่มหลายคนรวดเดียว กด "ปิด" เมื่อเสร็จ --- */
+function bookAddOpen(v){
+  v = v || { name:'', gender:'ชาย', age:'' };
+  modal(`<h3 class="font-bold gold mb-3">เพิ่มสมาชิก</h3><div class="grid gap-2 text-left">
+      <input id="aName" class="inp" placeholder="ชื่อ" maxlength="30" value="${esc(v.name)}">
+      <div class="grid grid-cols-2 gap-2"><select id="aGender" class="inp">${genderOpts(v.gender)}</select>
+        <input id="aAge" type="number" min="1" max="99" class="inp" placeholder="อายุ" value="${esc(v.age)}"></div></div>`,
+    [{ label:'ปิด', cls:'btn-ghost' }, { label:'เพิ่ม', cls:'btn-gold', fn:() => {
+      const cur = { name: $('aName').value.trim(), gender: $('aGender').value, age: parseInt($('aAge').value) || '' };
+      if(!cur.name){ toast('กรุณากรอกชื่อ'); return bookAddOpen(cur); }
+      if(bk().members.some(m => m.name === cur.name)){ toast('มีชื่อนี้ในกลุ่มแล้ว'); return bookAddOpen(cur); }
+      bk().members.unshift({ id: Date.now() + Math.random(), ...cur, yellow: 0, red: 0, joined: Date.now() });
+      save(); renderBook(); toast('เพิ่ม ' + cur.name + ' แล้ว ✔'); bookAddOpen();
+    } }]);
+  setTimeout(() => { const e = $('aName'); if(e) e.focus(); }, 60);
+}
+
+/* --- ⚙️ ตั้งค่า: เลือกชื่อ แล้วเปิดหน้าแก้ไข (ตามแท็บที่เปิดอยู่) --- */
+function bookSettings(){
+  const list = bookTab === 'in' ? 'members' : 'left', arr = bk()[list];
+  if(!arr.length) return toast('ยังไม่มีรายชื่อ');
+  const fn = list === 'members' ? 'bookEditMember' : 'bookEditLeft';
+  modal(`<h3 class="font-bold gold mb-3">⚙️ ตั้งค่า<br><span class="text-sm font-normal opacity-80">เลือกชื่อที่จะแก้ไข</span></h3>
+    <div class="max-h-64 overflow-y-auto grid gap-1">` +
+    arr.map(p => `<button class="btn btn-ghost text-left" onclick="${fn}(${p.id})">${esc(p.name)}</button>`).join('') + '</div>',
+    [{ label:'ปิด', cls:'btn-ghost' }]);
+}
+function eAdj(kind, d){ eTmp[kind] = Math.max(0, eTmp[kind] + d); $('eV_' + kind).textContent = eTmp[kind]; }  // ปุ่ม +/- ใบ (เก็บจริงตอนกดบันทึก)
+function applyEdit(p){
+  p.name = $('eName').value.trim() || p.name; p.gender = $('eGender').value; p.age = parseInt($('eAge').value) || '';
+  const j = $('eJoin').value; if(j){ const t = new Date(j + 'T12:00:00').getTime(); if(!isNaN(t)) p.joined = t; }
+  p.yellow = eTmp.yellow; p.red = eTmp.red; save(); renderBook();
+}
+function bookEditMember(id){
+  const p = findBook('members', id); if(!p) return;
+  eTmp = { yellow: p.yellow || 0, red: p.red || 0 };
+  const ctl = (k, label) => `<div class="flex items-center justify-between"><span>${label}</span><div class="flex items-center gap-2">
+      <button class="btn btn-ghost !py-0.5 !px-3" onclick="eAdj('${k}',-1)" aria-label="ลด">−</button>
+      <b id="eV_${k}" class="min-w-[1.5rem] text-center text-lg">${eTmp[k]}</b>
+      <button class="btn btn-ghost !py-0.5 !px-3" onclick="eAdj('${k}',1)" aria-label="เพิ่ม">+</button></div></div>`;
+  modal(`<h3 class="font-bold gold mb-3">แก้ไข ${esc(p.name)}</h3><div class="grid gap-2 text-left">
+      <input id="eName" class="inp" value="${esc(p.name)}" maxlength="30" placeholder="ชื่อ">
+      <div class="grid grid-cols-2 gap-2"><select id="eGender" class="inp">${genderOpts(p.gender)}</select>
+        <input id="eAge" type="number" min="1" max="99" class="inp" placeholder="อายุ" value="${esc(p.age)}"></div>
+      <label class="text-xs opacity-70 -mb-1">วันที่เข้า</label>
+      <input id="eJoin" type="date" class="inp" value="${p.joined ? toISO(p.joined) : ''}">
+      ${ctl('yellow', '🟨 ใบเหลือง')}${ctl('red', '🟥 ใบแดง')}</div>`,
+    [{ label:'ยกเลิก', cls:'btn-ghost' },
+     { label:'บันทึก', cls:'btn-gold', fn:() => { applyEdit(p); toast('บันทึกแล้ว ✔'); } },
+     { label:'ออกจากกลุ่ม', cls:'btn-ghost text-red-300', fn:() => { applyEdit(p); bookLeave(id); } }]);
+}
+// ออกจากกลุ่ม: ย้ายไปแท็บ "คนออกกลุ่ม" พร้อมเหตุผล (ใบเหลือง/แดงที่โดนติดไปด้วย)
+function bookLeave(id){
+  const p = findBook('members', id); if(!p) return;
+  modal(`<p class="mb-3"><b class="gold">${esc(p.name)}</b> ออกจากกลุ่ม</p>
+         <textarea id="eReason" class="inp" rows="3" placeholder="ออกเพราะอะไร เช่น ออกเอง / โดนใบแดง"></textarea>`,
+    [{ label:'ยกเลิก', cls:'btn-ghost' }, { label:'ยืนยันออก', cls:'btn-gold', fn:() => {
+      const b = bk(), reason = $('eReason').value.trim();
+      b.members = b.members.filter(x => x.id !== id); b.left.unshift({ ...p, reason, ts: Date.now() });
+      save(); renderBook(); toast('ย้ายไปคนออกกลุ่มแล้ว'); } }]);
+}
+// คนออกกลุ่ม: แก้ได้แค่สาเหตุ / ลบชื่อ (ใบที่โดนแก้ไม่ได้) + ปุ่มกลับเข้ากลุ่ม
+function bookEditLeft(id){
+  const p = findBook('left', id); if(!p) return;
+  modal(`<h3 class="font-bold gold mb-1">${esc(p.name)}</h3><div class="text-sm opacity-80 mb-3">ใบที่โดน: ${cardsText(p)}</div>
+    <textarea id="eReason" class="inp text-left" rows="3" placeholder="สาเหตุที่ออก">${esc(p.reason || '')}</textarea>`,
+    [{ label:'ยกเลิก', cls:'btn-ghost' },
+     { label:'บันทึก', cls:'btn-gold', fn:() => { p.reason = $('eReason').value.trim(); save(); renderBook(); toast('บันทึกแล้ว ✔'); } },
+     { label:'กลับเข้ากลุ่ม', cls:'btn-cyan', fn:() => bookReturn(id) },
+     { label:'ลบชื่อ', cls:'btn-ghost text-red-300', fn:() => bookDelLeft(id) }]);
+}
+function bookReturn(id){
+  const b = bk(), p = b.left.find(x => x.id === id); if(!p) return;
+  b.left = b.left.filter(x => x.id !== id); delete p.reason; delete p.ts; b.members.unshift(p);
+  save(); renderBook(); toast('กลับเข้ากลุ่มแล้ว');
+}
+function bookDelLeft(id){
+  const p = findBook('left', id); if(!p) return;
+  modal(`<p>ลบ <b class="gold">${esc(p.name)}</b> ออกจากประวัติถาวร?</p>`, [{ label:'ยกเลิก', cls:'btn-ghost' },
+    { label:'ลบ', cls:'btn-gold', fn:() => { bk().left = bk().left.filter(x => x.id !== id); save(); renderBook(); } }]);
+}
+
+/* --- แสดงรายการ (บรรทัดเดียวกระชับ) --- */
+const headRow = p => `<div class="flex items-baseline justify-between gap-2"><span class="font-semibold">${esc(p.name)}</span>
+  <span class="text-sm opacity-80 whitespace-nowrap">อายุ ${p.age ? esc(p.age) : '-'} • <span class="${genderColor(p.gender)}">${p.gender}</span></span></div>`;
+const rowIn = p => `<li class="py-2.5">${headRow(p)}
+  <div class="flex items-baseline justify-between gap-2 mt-0.5 text-sm"><span>${cardsText(p)}</span>
+  <span class="text-[11px] opacity-60 whitespace-nowrap">เข้าเมื่อ ${fmtShort(p.joined)}</span></div></li>`;
+const rowOut = p => `<li class="py-2.5">${headRow(p)}
+  <div class="mt-0.5 text-sm">ใบที่โดน: ${cardsText(p)}</div>
+  <div class="mt-0.5 text-sm whitespace-pre-wrap"><span class="gold">สาเหตุ:</span> ${p.reason ? esc(p.reason) : '<span class="opacity-60">ไม่ได้ระบุ</span>'}</div>
+  <div class="text-[11px] opacity-60 mt-0.5">เข้าเมื่อ ${fmtShort(p.joined)} • ออกเมื่อ ${fmtShort(p.ts)}</div></li>`;
+function renderBook(){
+  const b = bk(), q = $('bSearch').value.trim().toLowerCase(), isIn = bookTab === 'in';
+  document.querySelectorAll('#bookTabs [data-t]').forEach(t => {
+    const on = t.dataset.t === bookTab, tin = t.dataset.t === 'in';
+    t.style.borderColor = on ? '#fbbf24' : ''; t.style.background = on ? 'rgba(251,191,36,.15)' : '';
+    t.textContent = (tin ? '👥 คนในกลุ่ม (' + b.members.length : '🚪 คนออกกลุ่ม (' + b.left.length) + ')';
+  });
+  $('bAddBtn').classList.toggle('hidden', !isIn);
+  const all = isIn ? b.members : b.left, arr = all.filter(p => p.name.toLowerCase().includes(q));
+  $('bookList').innerHTML = arr.length ? arr.map(isIn ? rowIn : rowOut).join('')
+    : `<li class="py-6 text-center opacity-60">${all.length ? 'ไม่พบชื่อที่ค้นหา' : (isIn ? 'ยังไม่มีคนในกลุ่ม กด "+ เพิ่ม"' : 'ยังไม่มีคนออกกลุ่ม')}</li>`;
+}
+
+/* =====================================================
    8) INIT
    ===================================================== */
 load(); initCloud(); updateMuteBtn(); showPage('home');
 </script>
 </body>
 </html>
+r
