@@ -355,7 +355,7 @@ function drawWheel(){
   const a = 2*Math.PI/n;
   names.forEach((nm,i) => {
     const s = wheelAngle + i*a;
-    x.beginPat(); x.moveTo(cx,cy); x.arc(cx,cy,R,s,s+a); x.closePath();
+    x.beginPath(); x.moveTo(cx,cy); x.arc(cx,cy,R,s,s+a); x.closePath();
     x.fillStyle = COLORS[i % COLORS.length]; x.fill(); x.strokeStyle='#22d3ee'; x.lineWidth=1.5; x.stroke();
     x.save(); x.translate(cx,cy); x.rotate(s+a/2); x.textAlign='right'; x.fillStyle='#fff';
     x.font = (n>14 ? 12 : 16) + 'px Kanit'; x.fillText(nm.length>12 ? nm.slice(0,11)+'…' : nm, R-14, 5); x.restore();
@@ -451,7 +451,7 @@ function copyText(teams){
 /* =====================================================
    7) HISTORY — บันทึกการสุ่ม (เก็บทีมแบบ snapshot + วันที่ เวลา)
    ===================================================== */
-  function saveRecord(manual){
+function saveRecord(manual){
   if(!S.picked.length){ if(manual) toast('ยังไม่มีผลการสุ่มให้บันทึก'); return; }
   if(!S.sessionId) S.sessionId = Date.now();
   const rec = { id: S.sessionId, ts: Date.now(), teams: buildTeams() };
@@ -483,4 +483,3 @@ load(); initCloud(); showPage('home');
 </script>
 </body>
 </html>
-renderHome
